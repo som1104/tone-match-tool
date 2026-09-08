@@ -1,3 +1,7 @@
+
+// 패널 하나 안에서 이미지를 어떻게 그리고 상호작용 할지를 담당.
+
+
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createGLBlendRenderer, GLBlendRenderer } from "../lib/glBlend";
