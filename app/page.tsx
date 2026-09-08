@@ -369,18 +369,30 @@ export default function Home() {
 
       const refInfo = await loadReferenceImage();
       let refData: ImageData | null = null;
+      let refFailed = false;
       if (refInfo) {
         const refFile = new File([refInfo.blob], refInfo.name, { type: refInfo.blob.type || "image/png" });
-        refData = await applyReferenceFile(refFile, { persist: false, paletteCount: meta.paletteCount });
+        try {
+          refData = await applyReferenceFile(refFile, { persist: false, paletteCount: meta.paletteCount });
+        } catch {
+          // 저장돼있던 레퍼런스 이미지가 손상된 경우 - 레퍼런스 없이라도 타겟 이미지들은 복원한다.
+          refFailed = true;
+        }
       }
 
       const imageMap = await loadAllTargetImages();
       const restoredTargets: TargetItem[] = [];
+      const failedNames: string[] = [];
       for (const id of meta.targetOrder) {
         const blobInfo = imageMap[id];
         const settings = meta.targetSettings[id];
         if (!blobInfo || !settings) continue;
-        restoredTargets.push(await restoreTargetFile(id, blobInfo, settings));
+        try {
+          restoredTargets.push(await restoreTargetFile(id, blobInfo, settings));
+        } catch {
+          // 저장된 이미지 하나가 손상돼도 나머지 이미지 복원은 계속 진행한다.
+          failedNames.push(settings.name || blobInfo.name);
+        }
       }
 
       // 예전에 일괄 처리까지 돌려서 결과가 있던 상태였다면, 복원 직후 결과도 그대로 이어지도록
@@ -397,6 +409,13 @@ export default function Home() {
       const restoredSelectedId =
         meta.selectedId && finalTargets.some((t) => t.id === meta.selectedId) ? meta.selectedId : finalTargets[0]?.id ?? null;
       setSelectedId(restoredSelectedId);
+
+      if (refFailed || failedNames.length > 0) {
+        const parts: string[] = [];
+        if (refFailed) parts.push("레퍼런스 이미지");
+        if (failedNames.length > 0) parts.push(`${failedNames.join(", ")}`);
+        alert(`일부 저장된 이미지를 불러오지 못해 건너뛰었어요: ${parts.join(" · ")}`);
+      }
     } finally {
       setRestoringSession(false);
     }
@@ -654,42 +673,55 @@ export default function Home() {
 
   async function handleFilesSelected(files: File[]) {
     const newTargets: TargetItem[] = [];
+    const failedNames: string[] = [];
     setUploadProgress({ current: 0, total: files.length });
-    for (const file of files) {
-      const img = await fileToImage(file);
-      const canvas = imageToCanvas(img);
-      const data = canvasToImageData(canvas);
-      const id = `${Date.now()}-${file.name}-${Math.random().toString(36).slice(2, 7)}`;
-      newTargets.push({
-        id,
-        name: file.name,
-        originalFile: file,
-        originalSrc: canvasToDataUrl(canvas),
-        originalImageData: data,
-        matchedSrc: null,
-        matchedImageData: null,
-        colorStrength: batchDefault.color,
-        lumStrength: batchDefault.lum,
-        regionMask: null,
-        regionSeeds: [],
-        regionTolerance: DEFAULT_TOLERANCE,
-        regionFeather: DEFAULT_FEATHER,
-        fgColorStrength: batchDefault.color,
-        fgLumStrength: batchDefault.lum,
-        bgColorStrength: batchDefault.color,
-        bgLumStrength: batchDefault.lum,
-      });
-      // 원본 파일 자체(다운로드용 전체 해상도)를 세션에 저장해둔다 - 새로고침해도 이어서
-      // 작업할 수 있게. 실패해도(용량 초과 등) 업로드 자체는 계속 진행된다.
-      saveTargetImage(id, file.name, file);
-      setUploadProgress({ current: newTargets.length, total: files.length });
+    try {
+      for (const file of files) {
+        try {
+          const img = await fileToImage(file);
+          const canvas = imageToCanvas(img);
+          const data = canvasToImageData(canvas);
+          const id = `${Date.now()}-${file.name}-${Math.random().toString(36).slice(2, 7)}`;
+          newTargets.push({
+            id,
+            name: file.name,
+            originalFile: file,
+            originalSrc: canvasToDataUrl(canvas),
+            originalImageData: data,
+            matchedSrc: null,
+            matchedImageData: null,
+            colorStrength: batchDefault.color,
+            lumStrength: batchDefault.lum,
+            regionMask: null,
+            regionSeeds: [],
+            regionTolerance: DEFAULT_TOLERANCE,
+            regionFeather: DEFAULT_FEATHER,
+            fgColorStrength: batchDefault.color,
+            fgLumStrength: batchDefault.lum,
+            bgColorStrength: batchDefault.color,
+            bgLumStrength: batchDefault.lum,
+          });
+          // 원본 파일 자체(다운로드용 전체 해상도)를 세션에 저장해둔다 - 새로고침해도 이어서
+          // 작업할 수 있게. 실패해도(용량 초과 등) 업로드 자체는 계속 진행된다.
+          saveTargetImage(id, file.name, file);
+        } catch {
+          // 파일이 손상됐거나 이미지로 디코딩할 수 없는 경우 - 이 파일만 건너뛰고 나머지
+          // 파일들은 계속 처리한다 (전에는 하나만 실패해도 배치 전체가 중단됐었다).
+          failedNames.push(file.name);
+        }
+        setUploadProgress({ current: newTargets.length + failedNames.length, total: files.length });
+      }
+    } finally {
+      setUploadProgress(null);
     }
-    setUploadProgress(null);
     setTargets((prev) => {
       const merged = [...prev, ...newTargets];
       if (!selectedId && merged.length > 0) setSelectedId(merged[0].id);
       return merged;
     });
+    if (failedNames.length > 0) {
+      alert(`다음 파일은 이미지로 열 수 없어서 건너뛰었어요: ${failedNames.join(", ")}`);
+    }
   }
 
   async function handleProcessAll() {

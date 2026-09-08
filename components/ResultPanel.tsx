@@ -150,7 +150,19 @@ export default function ResultPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<GLBlendRenderer | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [resultTall, setResultTall] = useState(false);
+
+  // 톤 조정 ↔ 마무리 효과 탭을 오가면 이 컴포넌트가 언마운트/재마운트되는데, WebGL 컨텍스트를
+  // 정리하지 않으면 탭을 옮길 때마다 계속 쌓여서 브라우저의 동시 컨텍스트 개수 제한에 걸릴 수
+  // 있다. 컴포넌트가 완전히 사라질 때(빈 deps) 한 번만 정리한다 - 이미지가 바뀔 때마다 도는
+  // 아래쪽 렌더링 effect는 같은 캔버스에서 렌더러를 계속 재사용해야 하므로 여기서는 건드리지 않는다.
+  useEffect(() => {
+    return () => {
+      rendererRef.current?.dispose();
+      rendererRef.current = null;
+    };
+  }, []);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
 
   // 전후비교 슬라이더 (톤 조정 탭에서만 사용 - 마무리 효과 탭은 패널 자체가 이미 전/후라 필요 없다)
@@ -249,6 +261,7 @@ export default function ResultPanel({
   useEffect(() => {
     let cancelled = false;
     setReady(false);
+    setLoadError(false);
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -260,27 +273,38 @@ export default function ResultPanel({
         img.src = src;
       });
 
-    Promise.all([load(originalSrc), load(matchedSrc)]).then(([orig, matched]) => {
-      if (cancelled) return;
-      const { width: cw, height: ch } = fitLongImage(orig.width, orig.height, MAX_RESOLUTION * devicePixelRatioCap());
-      canvas.width = cw;
-      canvas.height = ch;
-      const tall = orig.width > 0 && orig.height / orig.width >= TALL_ASPECT_THRESHOLD;
-      setResultTall(tall);
-      setAspectRatio(orig.width > 0 && orig.height > 0 ? orig.width / orig.height : null);
-      onTallChange?.(tall);
-      if (!rendererRef.current) {
-        rendererRef.current = createGLBlendRenderer(canvas);
-      }
-      rendererRef.current.setImages(orig, matched);
-      if (region) {
-        rendererRef.current.setMask(region.mask, region.maskWidth, region.maskHeight);
-      } else {
-        rendererRef.current.setMask(null, 1, 1);
-      }
-      rendererRef.current.render(buildParams());
-      setReady(true);
-    });
+    Promise.all([load(originalSrc), load(matchedSrc)])
+      .then(([orig, matched]) => {
+        if (cancelled) return;
+        // 이미지 디코딩은 성공했어도 WebGL 컨텍스트 생성(구형 브라우저/그래픽 드라이버 문제)이나
+        // 렌더링 자체가 실패할 수 있어서, 여기서도 실패를 붙잡아 무한 로딩 대신 안내 문구를 보여준다.
+        try {
+          const { width: cw, height: ch } = fitLongImage(orig.width, orig.height, MAX_RESOLUTION * devicePixelRatioCap());
+          canvas.width = cw;
+          canvas.height = ch;
+          const tall = orig.width > 0 && orig.height / orig.width >= TALL_ASPECT_THRESHOLD;
+          setResultTall(tall);
+          setAspectRatio(orig.width > 0 && orig.height > 0 ? orig.width / orig.height : null);
+          onTallChange?.(tall);
+          if (!rendererRef.current) {
+            rendererRef.current = createGLBlendRenderer(canvas);
+          }
+          rendererRef.current.setImages(orig, matched);
+          if (region) {
+            rendererRef.current.setMask(region.mask, region.maskWidth, region.maskHeight);
+          } else {
+            rendererRef.current.setMask(null, 1, 1);
+          }
+          rendererRef.current.render(buildParams());
+          setReady(true);
+        } catch {
+          if (!cancelled) setLoadError(true);
+        }
+      })
+      .catch(() => {
+        // 이미지 파일 자체가 손상되어 디코딩(onerror)에 실패한 경우.
+        if (!cancelled) setLoadError(true);
+      });
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -450,7 +474,10 @@ export default function ResultPanel({
           )}
         </div>
       </div>
-      {!ready && (
+      {loadError && (
+        <span style={{ position: "absolute", fontSize: 13, color: "var(--text-muted)" }}>이미지를 불러오지 못했어요.</span>
+      )}
+      {!ready && !loadError && (
         <span style={{ position: "absolute", fontSize: 13, color: "var(--text-muted)" }}>불러오는 중…</span>
       )}
       {hoverColor && !regionPickMode && (
