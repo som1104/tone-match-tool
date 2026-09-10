@@ -30,20 +30,19 @@ export default function ColorPickerTooltip({
         display: "flex",
         alignItems: "center",
         gap: 8,
-        background: "rgba(30,30,30,0.92)",
-        color: "#fff",
+        background: "var(--ink)",
+        color: "var(--paper)",
         padding: "6px 10px",
-        borderRadius: 6,
-        fontSize: 12,
+        fontSize: 11,
+        letterSpacing: "0.04em",
+        fontVariantNumeric: "tabular-nums",
         whiteSpace: "nowrap",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
       }}
     >
       <span
         style={{
-          width: 16,
-          height: 16,
-          borderRadius: 4,
+          width: 12,
+          height: 12,
           background: hex,
           border: "1px solid rgba(255,255,255,0.4)",
           flexShrink: 0,

@@ -62,43 +62,37 @@ export default function FinishingPanel({
   }
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
-        이 설정은 모든 이미지에 공통으로 적용돼요. 톤 매칭이 끝난 뒤 마지막에 얹는 보정이에요.
-      </p>
+    <div className="tm-controls">
+      <p className="tm-hint">이 설정은 모든 이미지에 공통으로 적용돼요. 톤 매칭이 끝난 뒤 마지막에 얹는 보정이에요.</p>
       {/* 결과 이미지 영역이 줄어들지 않도록, 새 조절 항목도 기존 줄바꿈 그리드 안에 같이
           배치한다 (넓은 화면에서는 한 줄, 좁으면 자연스럽게 줄바꿈). */}
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 220 }}>
+      <div className="tm-slider-row">
+        <div className="tm-slider-cell" style={{ flexBasis: 240, minWidth: 220 }}>
           <SliderRow label="색수차 강도" value={chromaticAberration} onChange={onChromaticAberrationChange} />
         </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
+        <div className="tm-slider-cell" style={{ flexBasis: 240, minWidth: 220 }}>
           <SliderRow label="소프트 글로우 강도" value={glowStrength} onChange={onGlowStrengthChange} />
         </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
+        <div className="tm-slider-cell" style={{ flexBasis: 240, minWidth: 220 }}>
           <SliderRow label="대비 부스트" value={contrast} onChange={onContrastChange} />
         </div>
       </div>
       {/* 컬러 틴트·질감 효과 - 둘 다 바를 위쪽에 맞추고, 부수적인 선택 요소(색상 피커/질감
           종류)는 바 밑으로 내려서 정렬을 맞췄다. 프리셋은 팝오버 버튼 하나뿐이라 폭을 거의
           안 차지해서, 이 둘 폭을 살짝 줄인 자리에 맨 오른쪽 세 번째 칸으로 같이 뒀다. */}
-      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 18, alignItems: "flex-end" }}>
-        <div style={{ flex: 1, minWidth: 170 }}>
+      <div className="tm-slider-row" style={{ alignItems: "flex-end" }}>
+        <div className="tm-slider-cell" style={{ flexBasis: 240, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
           <SliderRow label="컬러 틴트 강도" value={tintStrength} onChange={onTintStrengthChange} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <input
-              type="color"
-              value={tintColor}
-              onChange={(e) => onTintColorChange(e.target.value)}
-              style={{ width: 32, height: 24, padding: 0, border: "0.5px solid var(--border-strong)", borderRadius: 4, cursor: "pointer" }}
-            />
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>틴트 색상</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="color" value={tintColor} onChange={(e) => onTintColorChange(e.target.value)} />
+            <span className="tm-micro" style={{ fontSize: 10.5 }}>틴트 색상</span>
           </div>
         </div>
-        <div style={{ flex: 1, minWidth: 170 }}>
+        <div className="tm-slider-cell" style={{ flexBasis: 240, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
           <SliderRow label="질감 강도" value={textureStrength} onChange={onTextureStrengthChange} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <select
+              className="tm-select-sm"
               value={textureType}
               onChange={(e) => {
                 const next = Number(e.target.value);
@@ -112,7 +106,7 @@ export default function FinishingPanel({
                   onTextureStrengthChange(50);
                 }
               }}
-              style={{ fontSize: 13, padding: "5px 6px", width: 98, flexShrink: 0 }}
+              style={{ fontSize: 12, padding: "6px 28px 6px 10px", flexShrink: 0 }}
             >
               {TEXTURE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -120,44 +114,42 @@ export default function FinishingPanel({
                 </option>
               ))}
             </select>
-            <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>질감 종류</span>
+            <span className="tm-micro" style={{ fontSize: 10.5, whiteSpace: "nowrap" }}>질감 종류</span>
           </div>
         </div>
         {/* 프리셋 - 누르면 그 자리에 카드가 떠오르는 팝오버. marginLeft:auto로 남는 공간을
             밀어내서 항상 맨 오른쪽에 붙는다. */}
         <div style={{ marginLeft: "auto", flexShrink: 0 }}>
           <Popover label="프리셋" width={280} align="end">
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <input
-              type="text"
-              value={presetName}
-              onChange={(e) => setPresetName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSaveClick(); }}
-              placeholder="프리셋 이름"
-              style={{ flex: 1, minWidth: 0, fontSize: 12, padding: "5px 8px" }}
-            />
-            <button onClick={handleSaveClick} disabled={!presetName.trim()} style={{ fontSize: 12, padding: "5px 10px", flexShrink: 0 }}>
-              저장
-            </button>
-          </div>
-          {presets.length === 0 ? (
-            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
-              지금 설정을 이름 붙여 저장해두면 다음에 바로 불러올 수 있어요.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {presets.map((p) => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <button onClick={() => onApplyPreset(p.id)} title="이 프리셋 적용" style={{ fontSize: 12, padding: "4px 8px" }}>
-                    {p.name}
-                  </button>
-                  <button onClick={() => onDeletePreset(p.id)} title="프리셋 삭제" style={{ fontSize: 11, padding: "4px 6px" }}>
-                    ✕
-                  </button>
-                </div>
-              ))}
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <input
+                type="text"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveClick(); }}
+                placeholder="프리셋 이름"
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button className="tm-acc" onClick={handleSaveClick} disabled={!presetName.trim()} style={{ flexShrink: 0 }}>
+                저장
+              </button>
             </div>
-          )}
+            {presets.length === 0 ? (
+              <p className="tm-hint">지금 설정을 이름 붙여 저장해두면 다음에 바로 불러올 수 있어요.</p>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {presets.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "stretch" }}>
+                    <button onClick={() => onApplyPreset(p.id)} title="이 프리셋 적용" style={{ padding: "5px 10px", letterSpacing: "0.04em" }}>
+                      {p.name}
+                    </button>
+                    <button onClick={() => onDeletePreset(p.id)} title="프리셋 삭제" style={{ padding: "5px 7px", marginLeft: -1, letterSpacing: 0 }}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </Popover>
         </div>
       </div>

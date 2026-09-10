@@ -33,15 +33,21 @@ export default function SliderRow({
     onChange(round(clamp(v)));
   }
 
+  // 트랙의 액센트 채움 비율 - 표시용 (값 자체는 그대로 input[type=range]가 다룬다).
+  const pct = Math.min(100, Math.max(0, ((value - min) / Math.max(1e-9, max - min)) * 100));
+  const trackStyle = {
+    "--tm-track": `linear-gradient(to right, var(--acc) ${pct}%, var(--line2) ${pct}%)`,
+  } as React.CSSProperties;
+
   return (
-    <div style={{ marginBottom: 6 }}>
-      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 6px" }}>{label}</p>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <button
           type="button"
           onClick={() => commit(value - step)}
           aria-label="감소"
-          style={{ width: 22, height: 22, padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+          style={{ width: 26, height: 26, padding: 0, fontSize: 13, letterSpacing: 0, lineHeight: 1, flexShrink: 0 }}
         >
           −
         </button>
@@ -52,13 +58,13 @@ export default function SliderRow({
           step={step}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          style={{ flex: 1, minWidth: 0 }}
+          style={{ flex: 1, minWidth: 120, ...trackStyle }}
         />
         <button
           type="button"
           onClick={() => commit(value + step)}
           aria-label="증가"
-          style={{ width: 22, height: 22, padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+          style={{ width: 26, height: 26, padding: 0, fontSize: 13, letterSpacing: 0, lineHeight: 1, flexShrink: 0 }}
         >
           +
         </button>
@@ -72,11 +78,11 @@ export default function SliderRow({
             const n = Number(e.target.value);
             if (!Number.isNaN(n)) commit(n);
           }}
-          style={{ width: 54, fontSize: 12, padding: "2px 4px", textAlign: "right", flexShrink: 0 }}
+          style={{ width: 54, minWidth: 54, textAlign: "right", flexShrink: 0 }}
         />
-        <span style={{ fontSize: 12, color: "var(--text-muted)", flexShrink: 0 }}>{unit}</span>
+        <span style={{ fontSize: 11, color: "var(--faint)", flexShrink: 0 }}>{unit}</span>
       </div>
-      {hint && <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "4px 0 0" }}>{hint}</p>}
+      {hint && <p className="tm-hint">{hint}</p>}
     </div>
   );
 }

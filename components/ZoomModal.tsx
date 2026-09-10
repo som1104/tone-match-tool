@@ -134,7 +134,7 @@ export default function ZoomModal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.75)",
+        background: "rgba(20,18,16,0.82)",
         zIndex: 100,
         display: "flex",
         alignItems: "center",
@@ -149,13 +149,13 @@ export default function ZoomModal({
           maxWidth: "92vw",
           maxHeight: "92vh",
           overflow: "auto",
-          background: "var(--surface-0)",
-          borderRadius: 12,
+          background: "var(--paper)",
+          border: "1px solid var(--line2)",
           padding: 8,
         }}
       >
         <div style={{ position: "relative", width: "min(900px, 88vw)" }}>
-          <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block", borderRadius: 8 }} />
+          <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block" }} />
           {showBeforeAfter && originalSrc && (
             <>
               <img
@@ -167,7 +167,6 @@ export default function ZoomModal({
                   width: "100%",
                   height: "100%",
                   clipPath: `inset(0 ${100 - beforeAfterPos}% 0 0)`,
-                  borderRadius: 8,
                 }}
               />
               <div
@@ -180,16 +179,16 @@ export default function ZoomModal({
                   top: 0,
                   bottom: 0,
                   left: `${beforeAfterPos}%`,
-                  width: 2,
-                  background: "#fff",
-                  boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+                  width: 9,
+                  marginLeft: -4,
+                  background: "linear-gradient(to right, transparent 4px, #fff 4px, #fff 5px, transparent 5px)",
                   cursor: "ew-resize",
                 }}
               >
-                <div style={{ position: "absolute", top: 24, left: "50%", transform: "translate(-50%, 0)", width: 22, height: 22, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }} />
+                <div style={{ position: "absolute", top: 24, left: "50%", transform: "translate(-50%, 0)", width: 12, height: 12, background: "#fff", border: "1px solid var(--acc)" }} />
               </div>
               {beforeAfterPos > 14 && (
-                <span style={{ position: "absolute", top: 10, left: 10, fontSize: 12, padding: "3px 10px", borderRadius: 6, background: "rgba(255,255,255,0.9)", color: "#333" }}>원본</span>
+                <span className="tm-chip" style={{ position: "absolute", top: 10, left: 10 }}>원본</span>
               )}
             </>
           )}
@@ -199,24 +198,18 @@ export default function ZoomModal({
       {/* 컨트롤 버튼은 스크롤 영역 밖(뷰포트 기준 고정)에 둬서 이미지가 아무리 길어도 항상 보인다. */}
       <div style={{ position: "fixed", top: 20, right: 24, display: "flex", gap: 8, zIndex: 101 }}>
         <button
+          className={showBeforeAfter ? "tm-acc" : undefined}
           onClick={(e) => { e.stopPropagation(); setShowBeforeAfter((v) => !v); setBeforeAfterPos(50); }}
-          style={{
-            fontSize: 13,
-            padding: "6px 14px",
-            background: showBeforeAfter ? "var(--accent)" : "rgba(255,255,255,0.9)",
-            color: showBeforeAfter ? "#fff" : "#333",
-            border: showBeforeAfter ? "0.5px solid var(--accent)" : "0.5px solid var(--border-strong)",
-            borderRadius: 6,
-          }}
+          style={{ letterSpacing: "0.1em", padding: "9px 14px" }}
         >
           전후비교
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onClose(); }}
           title="닫기 (ESC)"
-          style={{ fontSize: 13, padding: "6px 14px", background: "rgba(255,255,255,0.9)", color: "#333", border: "0.5px solid var(--border-strong)", borderRadius: 6 }}
+          style={{ letterSpacing: "0.1em", padding: "9px 14px" }}
         >
-          ✕ 닫기
+          × 닫기
         </button>
       </div>
     </div>

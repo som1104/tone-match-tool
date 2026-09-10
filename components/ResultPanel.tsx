@@ -4,6 +4,7 @@
 
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createGLBlendRenderer, GLBlendRenderer } from "../lib/glBlend";
 import { fitLongImage, devicePixelRatioCap, hexToRgb01, rgbToHex } from "../lib/image";
 import type { RegionValues } from "./CompareStage";
@@ -46,9 +47,9 @@ export function outerPanelStyle(
       width: computedSize.width,
       height: computedSize.height,
       flex: "0 0 auto",
-      borderRadius: 12,
       overflow: "hidden",
-      background: "var(--surface-0)",
+      background: "var(--surface)",
+      border: "1px solid var(--line)",
     };
   }
   return {
@@ -57,9 +58,9 @@ export function outerPanelStyle(
     height: "100%",
     minWidth: basis,
     flex: twoColumnMode ? (growTogether ? `1 1 ${basis}px` : "0 1 auto") : "1 1 auto",
-    borderRadius: 12,
     overflow: "hidden",
-    background: "var(--surface-0)",
+    background: "var(--surface)",
+    border: "1px solid var(--line)",
   };
 }
 
@@ -113,6 +114,7 @@ export default function ResultPanel({
   scrollContainerRef,
   rowWidth,
   rowHeight,
+  headerSlot,
 }: {
   originalSrc: string;
   matchedSrc: string;
@@ -146,6 +148,9 @@ export default function ResultPanel({
   // 아직 측정 전이면 null/undefined.
   rowWidth?: number | null;
   rowHeight?: number | null;
+  // 라벨 칩·버튼 행을 이미지 위 오버레이 대신 부모가 마련한 프레임 헤더 자리에 그린다 (포털).
+  // 동작은 같고 그려지는 위치만 바뀐다.
+  headerSlot?: HTMLElement | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<GLBlendRenderer | null>(null);
@@ -358,24 +363,20 @@ export default function ResultPanel({
 
   const tagStyle: React.CSSProperties = {
     position: "absolute",
-    top: 12,
-    left: 12,
-    fontSize: 12,
-    padding: "3px 10px",
-    borderRadius: 6,
-    background: "rgba(255,255,255,0.9)",
-    color: "#333",
+    top: 10,
+    left: 10,
     zIndex: 6,
   };
 
+  // 전후비교 와이프 - 보이는 건 1px 흰 선, 잡히는 영역은 좌우로 조금 넓게.
   const dividerStyle: React.CSSProperties = {
     position: "absolute",
     top: 0,
     bottom: 0,
     left: `${beforeAfterPos}%`,
-    width: 2,
-    background: "#fff",
-    boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+    width: 9,
+    marginLeft: -4,
+    background: "linear-gradient(to right, transparent 4px, #fff 4px, #fff 5px, transparent 5px)",
     cursor: "ew-resize",
     zIndex: 8,
   };
@@ -385,12 +386,12 @@ export default function ResultPanel({
     : { ...mediaStyleFor(false), position: "absolute", inset: 0, margin: "auto", clipPath: `inset(0 ${100 - beforeAfterPos}% 0 0)`, zIndex: 4 };
 
   const handleDotStyle: React.CSSProperties = resultTall
-    ? { position: "absolute", top: 24, left: "50%", transform: "translate(-50%, 0)", width: 22, height: 22, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" }
-    : { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 22, height: 22, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.4)" };
+    ? { position: "absolute", top: 24, left: "50%", transform: "translate(-50%, 0)", width: 12, height: 12, background: "#fff", border: "1px solid var(--acc)" }
+    : { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 12, height: 12, background: "#fff", border: "1px solid var(--acc)" };
 
   const originTagStyle: React.CSSProperties = resultTall
     ? { ...tagStyle, top: 10, left: 10 }
-    : { ...tagStyle, top: undefined, bottom: 12, left: 12 };
+    : { ...tagStyle, top: undefined, bottom: 10, left: 10 };
 
   // 부모 행(row)의 실측 크기가 준비되면 일반 이미지는 정확히 그 크기에 맞춰 명시적 px로 표시한다.
   // 두 패널이 같은 행에 나란히 있으므로 가용 너비는 (행 너비 - 사이 간격) / 2로 계산한다.
@@ -399,6 +400,36 @@ export default function ResultPanel({
     !resultTall && aspectRatio && rowWidth && rowHeight
       ? containFit(aspectRatio, (rowWidth - ROW_GAP) / 2, rowHeight)
       : null;
+
+  const headerRow = (
+    <div
+      style={
+        headerSlot
+          ? { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, minWidth: 0 }
+          : { position: "absolute", top: 10, left: 10, right: 10, zIndex: 6, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }
+      }
+    >
+      <span className={headerSlot ? "tm-chip" : "tm-overlay-tag"} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+        {tagLabel}
+        {tagExtra}
+      </span>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0, whiteSpace: "nowrap" }}>
+        {onZoom && (
+          <button className="tm-mini" onClick={onZoom} disabled={zoomLoading} title="원본 해상도로 보기">
+            {zoomLoading ? "불러오는 중…" : "원본 사이즈로 보기"}
+          </button>
+        )}
+        {showBeforeAfterToggle && (
+          <button
+            className={showBeforeAfter ? "tm-mini tm-acc" : "tm-mini"}
+            onClick={() => { setShowBeforeAfter((v) => !v); setBeforeAfterPos(50); }}
+          >
+            전후비교
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div style={outerPanelStyle(resultTall, twoColumnMode, growTogether, computedSize)}>
@@ -418,67 +449,18 @@ export default function ResultPanel({
               <div onMouseDown={handleDividerMouseDown} style={dividerStyle}>
                 <div style={handleDotStyle} />
               </div>
-              {beforeAfterPos > 14 && <span style={originTagStyle}>원본</span>}
+              {beforeAfterPos > 14 && <span className="tm-chip" style={originTagStyle}>원본</span>}
             </>
           )}
         </div>
       </div>
       {/* 스크롤 레이어 밖에 둬서 긴 이미지를 스크롤해도 항상 보인다. */}
-      <div style={{ position: "absolute", top: 12, left: 12, right: 12, zIndex: 6, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <span
-          style={{
-            fontSize: 12,
-            padding: "3px 10px",
-            borderRadius: 6,
-            background: "rgba(255,255,255,0.9)",
-            color: "#333",
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {tagLabel}
-          {tagExtra}
-        </span>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0, whiteSpace: "nowrap" }}>
-          {onZoom && (
-            <button
-              onClick={onZoom}
-              disabled={zoomLoading}
-              title="원본 해상도로 보기"
-              style={{
-                fontSize: 12,
-                padding: "3px 10px",
-                background: "rgba(255,255,255,0.9)",
-                color: "#333",
-                border: "0.5px solid var(--border-strong)",
-              }}
-            >
-              {zoomLoading ? "불러오는 중…" : "원본 사이즈로 보기"}
-            </button>
-          )}
-          {showBeforeAfterToggle && (
-            <button
-              onClick={() => { setShowBeforeAfter((v) => !v); setBeforeAfterPos(50); }}
-              style={{
-                fontSize: 12,
-                padding: "3px 10px",
-                background: showBeforeAfter ? "var(--accent)" : "rgba(255,255,255,0.9)",
-                color: showBeforeAfter ? "#fff" : "#333",
-                border: showBeforeAfter ? "0.5px solid var(--accent)" : "0.5px solid var(--border-strong)",
-              }}
-            >
-              전후비교
-            </button>
-          )}
-        </div>
-      </div>
+      {headerSlot ? createPortal(headerRow, headerSlot) : headerRow}
       {loadError && (
-        <span style={{ position: "absolute", fontSize: 13, color: "var(--text-muted)" }}>이미지를 불러오지 못했어요.</span>
+        <span className="tm-micro" style={{ position: "absolute", left: 14, bottom: 14 }}>이미지를 불러오지 못했어요.</span>
       )}
       {!ready && !loadError && (
-        <span style={{ position: "absolute", fontSize: 13, color: "var(--text-muted)" }}>불러오는 중…</span>
+        <span className="tm-micro" style={{ position: "absolute", left: 14, bottom: 14, animation: "tm-blink 1s infinite" }}>불러오는 중 · LOADING</span>
       )}
       {hoverColor && !regionPickMode && (
         <ColorPickerTooltip

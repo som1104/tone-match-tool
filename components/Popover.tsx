@@ -70,14 +70,14 @@ export default function Popover({
         ref={triggerRef}
         type="button"
         onClick={handleTriggerClick}
-        className={open ? "primary" : undefined}
-        style={{ fontSize: 12 }}
+        className={open ? "tm-toggle tm-acc" : "tm-toggle"}
       >
         {label}
       </button>
       {open && pos && (
         <div
           ref={panelRef}
+          className="tm-popover"
           style={{
             position: "fixed",
             left: pos.x,
@@ -87,11 +87,6 @@ export default function Popover({
             maxHeight: pos.maxHeight,
             overflowY: "auto",
             zIndex: 60,
-            background: "var(--surface-1)",
-            border: "0.5px solid var(--border-strong)",
-            borderRadius: 8,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            padding: 14,
           }}
         >
           {children}

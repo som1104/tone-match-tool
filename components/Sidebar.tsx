@@ -33,6 +33,7 @@ export default function Sidebar({
   onDownloadFormatChange,
   selectedOriginal,
   selectedMatched,
+  targetCount = 0,
 }: {
   referenceSrc: string | null;
   referenceName: string | null;
@@ -53,6 +54,8 @@ export default function Sidebar({
   onDownloadFormatChange: (f: DownloadFormat) => void;
   selectedOriginal?: ImageData | null;
   selectedMatched?: ImageData | null;
+  // 일괄 처리 버튼 우측에 표시할 대상 이미지 수 (표시 전용)
+  targetCount?: number;
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
@@ -75,27 +78,36 @@ export default function Sidebar({
   }
 
   return (
-    <div style={{ width: 260, flexShrink: 0, padding: "1.25rem", borderRight: "0.5px solid var(--border)", display: "flex", flexDirection: "column", gap: "1.5rem", overflowY: "auto" }}>
-      <div>
-        <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 8px" }}>레퍼런스 이미지</p>
+    <aside className="tm-side">
+      {/* 01 — 레퍼런스 이미지 */}
+      <div className="tm-section" style={{ gap: 10, paddingBottom: 22 }}>
+        <div className="tm-sechead">
+          <span className="tm-num">01 —</span>
+          <span className="tm-h">레퍼런스 이미지</span>
+          <span className="tm-micro">REFERENCE</span>
+        </div>
         <label
+          className={`tm-drop${dragOver ? " is-over" : ""}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           style={{
-            display: "block",
-            cursor: "pointer",
-            borderRadius: 10,
-            border: dragOver ? "1.5px dashed var(--border-accent)" : "0.5px dashed var(--border-strong)",
-            background: dragOver ? "var(--accent-bg)" : "transparent",
-            padding: referenceSrc ? 4 : 0,
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            aspectRatio: "4 / 3",
+            maxHeight: 190,
+            overflow: "hidden",
+            background: referenceSrc ? "var(--surface)" : "transparent",
           }}
         >
           {referenceSrc ? (
-            <img src={referenceSrc} alt="레퍼런스" style={{ display: "block", width: "100%", height: "auto", maxHeight: 300, objectFit: "contain", borderRadius: 6, margin: "0 auto" }} />
+            <img src={referenceSrc} alt="레퍼런스" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           ) : (
-            <div style={{ height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center" }}>클릭하거나<br />끌어다 놓으세요</span>
+            <div style={{ position: "relative", textAlign: "center", display: "flex", flexDirection: "column", gap: 6, padding: 14 }}>
+              <span style={{ fontSize: 12.5, lineHeight: 1.5 }}>클릭하거나<br />끌어다 놓으세요</span>
+              <span className="tm-micro">JPG · PNG · WEBP</span>
             </div>
           )}
           <input
@@ -105,45 +117,78 @@ export default function Sidebar({
             onChange={(e) => e.target.files?.[0] && onReferenceSelect(e.target.files[0])}
           />
         </label>
-        {referenceName && <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0" }}>{referenceName}</p>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11, color: "var(--muted)", minHeight: 14 }}>
+          <span title={referenceName ?? undefined} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {referenceName ?? "레퍼런스 없음"}
+          </span>
+        </div>
       </div>
 
-      <div>
-        <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 8px" }}>알고리즘</p>
+      {/* 02 — 알고리즘 */}
+      <div className="tm-section">
+        <div className="tm-sechead">
+          <span className="tm-num">02 —</span>
+          <span className="tm-h">알고리즘</span>
+          <span className="tm-micro">ALGORITHM</span>
+        </div>
         <select value={algorithm} onChange={(e) => onAlgorithmChange(e.target.value as Algorithm)}>
           <option value="mkl">MKL (공분산 기반) / 정교함</option>
           <option value="reinhard">Reinhard (평균/표준편차) / 무난함</option>
           <option value="histogram">히스토그램 매칭 / 강렬함</option>
         </select>
-        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "6px 0 0" }}>{ALGORITHM_DESCRIPTIONS[algorithm]}</p>
-        <button className="primary" onClick={onProcessAll} disabled={!canProcess || processing} style={{ padding: "10px 14px", marginTop: 10, width: "100%" }}>
-          {processProgress ? `처리 중… (${processProgress.current}/${processProgress.total})` : "일괄 처리"}
+        <p className="tm-desc">{ALGORITHM_DESCRIPTIONS[algorithm]}</p>
+        <button
+          className={processing ? "tm-acc-outline" : "tm-acc"}
+          onClick={onProcessAll}
+          disabled={!canProcess || processing}
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: 14,
+            fontSize: 12.5,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            opacity: processing ? 1 : undefined,
+          }}
+        >
+          <span>{processing ? "처리 중" : "일괄 처리"}</span>
+          <span style={{ fontWeight: 400, fontVariantNumeric: "tabular-nums" }}>
+            {processProgress ? `${processProgress.current}/${processProgress.total}` : targetCount > 0 ? `${targetCount}장` : "—"}
+          </span>
         </button>
-        {processProgress && (
-          <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(processProgress.current / Math.max(1, processProgress.total)) * 100}%`, background: "var(--accent)", transition: "width 0.15s" }} />
-          </div>
-        )}
       </div>
 
+      {/* 03 — 색상 분포 비교 */}
       {selectedMatched && (
-        <div>
-          <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "0 0 8px" }}>색상 분포 비교</p>
+        <div className="tm-section" style={{ gap: 14 }}>
+          <div className="tm-sechead">
+            <span className="tm-num">03 —</span>
+            <span className="tm-h">색상 분포 비교</span>
+            <span className="tm-micro">HISTOGRAM</span>
+          </div>
           <ColorHistogram original={selectedOriginal ?? null} matched={selectedMatched} />
         </div>
       )}
 
+      {/* 색상 팔레트 */}
       {palette.length > 0 && (
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: 0 }}>색상 팔레트</p>
-            <select value={paletteCount} onChange={(e) => onPaletteCountChange(Number(e.target.value))} style={{ width: 80 }}>
+        <div className="tm-section">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="tm-h">색상 팔레트</span>
+            <select
+              className="tm-select-sm"
+              value={paletteCount}
+              onChange={(e) => onPaletteCountChange(Number(e.target.value))}
+              style={{ marginLeft: "auto" }}
+            >
               <option value={16}>16</option>
               <option value={32}>32</option>
               <option value={64}>64</option>
             </select>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 3 }}>
             {palette.map((c) => (
               <button
                 key={c.hex}
@@ -151,44 +196,53 @@ export default function Sidebar({
                 title={copiedHex === c.hex ? "복사됨" : c.hex}
                 style={{
                   aspectRatio: "1 / 1",
-                  borderRadius: 4,
                   background: c.hex,
-                  border: "none",
+                  border: "1px solid rgba(0,0,0,0.08)",
                   padding: 0,
                   cursor: "pointer",
                   position: "relative",
                 }}
               >
                 {copiedHex === c.hex && (
-                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", borderRadius: 4, color: "#fff", fontSize: 11 }}>
+                  <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)", color: "#fff", fontSize: 11 }}>
                     ✓
                   </span>
                 )}
               </button>
             ))}
           </div>
-          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "6px 0 0" }}>클릭하면 색상 코드가 복사됩니다</p>
+          <span className="tm-hint">클릭하면 색상 코드가 복사됩니다</span>
         </div>
       )}
 
-      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>저장 포맷</span>
-          <select value={downloadFormat} onChange={(e) => onDownloadFormatChange(e.target.value as DownloadFormat)} style={{ flex: 1 }}>
+      {/* 저장 */}
+      <div className="tm-section tm-section-last">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span className="tm-micro" style={{ fontSize: 10.5 }}>저장 포맷</span>
+          <select
+            className="tm-select-sm"
+            value={downloadFormat}
+            onChange={(e) => onDownloadFormatChange(e.target.value as DownloadFormat)}
+            style={{ marginLeft: "auto", fontSize: 12, padding: "7px 28px 7px 10px" }}
+          >
             <option value="png">PNG</option>
             <option value="jpg">JPG</option>
           </select>
         </div>
-        <button onClick={onDownloadZip} disabled={!canDownload || !!downloadProgress} style={{ padding: "10px 14px" }}>
+        <button
+          onClick={onDownloadZip}
+          disabled={!canDownload || !!downloadProgress}
+          style={{ width: "100%", padding: 13, fontSize: 12, letterSpacing: "0.1em", opacity: !canDownload ? 0.45 : undefined }}
+        >
           {downloadProgress ? `다운로드 중… (${downloadProgress.current}/${downloadProgress.total})` : "ZIP 다운로드"}
         </button>
         {downloadProgress && (
-          <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(downloadProgress.current / Math.max(1, downloadProgress.total)) * 100}%`, background: "var(--accent)", transition: "width 0.15s" }} />
+          <div className="tm-bar">
+            <span style={{ width: `${(downloadProgress.current / Math.max(1, downloadProgress.total)) * 100}%` }} />
           </div>
         )}
-        <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>개별 이미지는 필름스트립 썸네일의 ⬇ 아이콘으로도 받을 수 있어요</p>
+        <p className="tm-hint">개별 이미지는 필름스트립 썸네일의 ↓ 아이콘으로도 받을 수 있어요</p>
       </div>
-    </div>
+    </aside>
   );
 }

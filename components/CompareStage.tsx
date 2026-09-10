@@ -81,25 +81,6 @@ export default function CompareStage({
   const twoColumnMode = !resultOnly;
   const growTogether = tallLeft || tallRight;
 
-  // 일반 이미지 표시 크기를 JS로 계산하기 위해, 두 패널이 나란히 놓인 이 행(row)의 실제 크기를
-  // ResizeObserver로 측정한다. 패널 자기 자신이 아니라 "행"을 측정해야 - 패널 크기가 행 크기에
-  // 영향을 주지 않으니 - 크기 계산이 자기 자신을 다시 바꾸는 피드백 루프를 피할 수 있다.
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const [rowSize, setRowSize] = useState<{ width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    const el = rowRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      setRowSize({ width, height });
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   // 마무리 효과 탭의 적용 전/후 패널은 항상 같은 이미지라 길이가 똑같으니, 한쪽을 스크롤하면
   // 다른 쪽도 같이 움직이게 동기화한다 (톤 조정 탭의 레퍼런스/결과는 서로 길이가 다를 수 있어
   // 동기화하지 않는다 - 그쪽엔 이 로직이 적용되지 않는다).
@@ -184,27 +165,53 @@ export default function CompareStage({
   const tagExtra = (
     <>
       {typeof index === "number" && typeof total === "number" && total > 0 && (
-        <span style={{ color: "var(--text-secondary)" }}> · {index} / {total}</span>
+        <span style={{ color: "var(--muted)", textTransform: "none", letterSpacing: 0 }}> · {index}/{total}</span>
       )}
-      {overridden && <span style={{ color: "var(--accent)" }}> · 이 이미지만 개별 조정됨</span>}
+      {overridden && <span style={{ color: "var(--acc)", textTransform: "none", letterSpacing: 0 }}> · 이 이미지만 개별 조정됨</span>}
     </>
   );
 
-  const tagStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    fontSize: 12,
-    padding: "3px 10px",
-    borderRadius: 6,
-    background: "rgba(255,255,255,0.9)",
-    color: "#333",
-    zIndex: 6,
+  // 각 패널은 고정 프레임(1px 선 + 서피스 + 헤더 행) 안에 이미지를 담는다. 이미지 크기 계산은
+  // 행이 아니라 프레임 안쪽 "이미지 슬롯"의 실측 크기를 기준으로 한다 - 프레임이 flex로 크기가
+  // 정해지고 이미지는 그 안에 맞춰 들어가므로 피드백 루프가 없다.
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const [slotSize, setSlotSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = slotRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setSlotSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // ResultPanel은 "(행 너비 - 12) / 2 × 행 높이"로 계산하므로 슬롯 크기를 그 식에 맞춰 넘긴다.
+  const panelRowWidth = slotSize ? slotSize.width * 2 + 12 : null;
+  const panelRowHeight = slotSize ? slotSize.height : null;
+
+  // 헤더 행을 담을 요소 - ResultPanel이 포털로 라벨 칩·버튼을 여기에 그린다.
+  const [leftHeader, setLeftHeader] = useState<HTMLDivElement | null>(null);
+  const [rightHeader, setRightHeader] = useState<HTMLDivElement | null>(null);
+
+  const frameStyle: React.CSSProperties = {
+    flex: "1 1 0",
+    minWidth: 0,
+    height: "100%",
+    border: "1px solid var(--line)",
+    background: "var(--surface)",
+    padding: 14,
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
   };
+  const headerStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, minHeight: 26, flexShrink: 0 };
+  const slotStyle: React.CSSProperties = { flex: "1 1 auto", minHeight: 0, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" };
 
   const refComputedSize =
-    !tallLeft && refAspectRatio && rowSize
-      ? containFit(refAspectRatio, (rowSize.width - 12) / 2, rowSize.height)
+    !tallLeft && refAspectRatio && slotSize
+      ? containFit(refAspectRatio, slotSize.width, slotSize.height)
       : null;
 
   return (
@@ -214,59 +221,76 @@ export default function CompareStage({
           이미지는 세로 폭이 행 높이보다 훨씬 짧아서 위쪽에 붙어 보이는 문제가 있었는데,
           alignItems:center로 세로 방향도 가운데로 맞춘다 (세로로 긴 이미지는 이미 height:100%라
           영향 없음). */}
-      <div ref={rowRef} style={{ display: "flex", gap: 12, flex: 1, minHeight: 0, justifyContent: "center", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 12, flex: 1, minHeight: 0, justifyContent: "center", alignItems: "stretch", padding: "16px 24px 0" }}>
         {resultOnly ? (
           <>
             {/* 마무리 효과 탭에서는 토글 대신, 적용 전/후 두 이미지를 나란히 보여준다 - 슬라이더를
                 움직이는 동안에도 바로 비교가 되도록. */}
-            <ResultPanel
-              originalSrc={originalSrc}
-              matchedSrc={matchedSrc}
-              colorStrength={colorStrength}
-              lumStrength={lumStrength}
-              region={region}
-              // 밝기 양 끝 보호는 "마무리 효과"가 아니라 톤 조정에 딸린 상시 설정이라, 전/후
-              // 비교에서 토글되는 대상(색수차·글로우)이 아니다 - 적용 전에도 그대로 켜져 있어야 한다.
-              shadowProtect={shadowProtect}
-              highlightProtect={highlightProtect}
-              tagLabel="적용 전"
-              tagExtra={tagExtra}
-              twoColumnMode
-              growTogether={growTogether}
-              onTallChange={setTallLeft}
-              scrollContainerRef={beforeScrollRef}
-              rowWidth={rowSize?.width ?? null}
-              rowHeight={rowSize?.height ?? null}
-            />
-            <ResultPanel
-              originalSrc={originalSrc}
-              matchedSrc={matchedSrc}
-              colorStrength={colorStrength}
-              lumStrength={lumStrength}
-              region={region}
-              chroma={chroma}
-              glow={glow}
-              shadowProtect={shadowProtect}
-              highlightProtect={highlightProtect}
-              texture={texture}
-              textureStrength={textureStrength}
-              contrast={contrast}
-              tintColor={tintColor}
-              tintStrength={tintStrength}
-              tagLabel="적용 후"
-              tagExtra={tagExtra}
-              onZoom={onZoom}
-              zoomLoading={zoomLoading}
-              twoColumnMode
-              growTogether={growTogether}
-              onTallChange={setTallRight}
-              scrollContainerRef={afterScrollRef}
-              rowWidth={rowSize?.width ?? null}
-              rowHeight={rowSize?.height ?? null}
-            />
+            <div style={frameStyle}>
+              <div ref={setLeftHeader} style={headerStyle} />
+              <div ref={slotRef} style={slotStyle}>
+                <ResultPanel
+                  originalSrc={originalSrc}
+                  matchedSrc={matchedSrc}
+                  colorStrength={colorStrength}
+                  lumStrength={lumStrength}
+                  region={region}
+                  // 밝기 양 끝 보호는 "마무리 효과"가 아니라 톤 조정에 딸린 상시 설정이라, 전/후
+                  // 비교에서 토글되는 대상(색수차·글로우)이 아니다 - 적용 전에도 그대로 켜져 있어야 한다.
+                  shadowProtect={shadowProtect}
+                  highlightProtect={highlightProtect}
+                  tagLabel="적용 전"
+                  tagExtra={tagExtra}
+                  twoColumnMode
+                  growTogether={growTogether}
+                  onTallChange={setTallLeft}
+                  scrollContainerRef={beforeScrollRef}
+                  rowWidth={panelRowWidth}
+                  rowHeight={panelRowHeight}
+                  headerSlot={leftHeader}
+                />
+              </div>
+            </div>
+            <div style={frameStyle}>
+              <div ref={setRightHeader} style={headerStyle} />
+              <div style={slotStyle}>
+                <ResultPanel
+                  originalSrc={originalSrc}
+                  matchedSrc={matchedSrc}
+                  colorStrength={colorStrength}
+                  lumStrength={lumStrength}
+                  region={region}
+                  chroma={chroma}
+                  glow={glow}
+                  shadowProtect={shadowProtect}
+                  highlightProtect={highlightProtect}
+                  texture={texture}
+                  textureStrength={textureStrength}
+                  contrast={contrast}
+                  tintColor={tintColor}
+                  tintStrength={tintStrength}
+                  tagLabel="적용 후"
+                  tagExtra={tagExtra}
+                  onZoom={onZoom}
+                  zoomLoading={zoomLoading}
+                  twoColumnMode
+                  growTogether={growTogether}
+                  onTallChange={setTallRight}
+                  scrollContainerRef={afterScrollRef}
+                  rowWidth={panelRowWidth}
+                  rowHeight={panelRowHeight}
+                  headerSlot={rightHeader}
+                />
+              </div>
+            </div>
           </>
         ) : (
           <>
+            <div style={frameStyle}>
+              <div style={headerStyle}>
+                <span className="tm-chip">레퍼런스</span>
+              </div>
+              <div ref={slotRef} style={slotStyle}>
             <div style={outerPanelStyle(tallLeft, twoColumnMode, growTogether, refComputedSize)}>
               <div style={scrollLayerStyle(tallLeft)}>
                 <div style={contentWrapStyle(tallLeft)}>
@@ -281,7 +305,6 @@ export default function CompareStage({
                   />
                 </div>
               </div>
-              <span style={tagStyle}>레퍼런스</span>
               {refHoverColor && (
                 <ColorPickerTooltip
                   x={refHoverColor.x}
@@ -294,34 +317,38 @@ export default function CompareStage({
                 />
               )}
             </div>
-            <ResultPanel
-              originalSrc={originalSrc}
-              matchedSrc={matchedSrc}
-              colorStrength={colorStrength}
-              lumStrength={lumStrength}
-              region={region}
-              regionPickMode={regionPickMode}
-              onRegionPick={onRegionPick}
-              chroma={chroma}
-              glow={glow}
-              shadowProtect={shadowProtect}
-              highlightProtect={highlightProtect}
-              texture={texture}
-              textureStrength={textureStrength}
-              contrast={contrast}
-              tintColor={tintColor}
-              tintStrength={tintStrength}
-              tagLabel="보정 결과"
-              tagExtra={tagExtra}
-              showBeforeAfterToggle
-              onZoom={onZoom}
-              zoomLoading={zoomLoading}
-              twoColumnMode
-              growTogether={growTogether}
-              onTallChange={setTallRight}
-              rowWidth={rowSize?.width ?? null}
-              rowHeight={rowSize?.height ?? null}
-            />
+              </div>
+            </div>
+            <div style={frameStyle}>
+              <div ref={setRightHeader} style={headerStyle} />
+              <div style={slotStyle}>
+                <ResultPanel
+                  originalSrc={originalSrc}
+                  matchedSrc={matchedSrc}
+                  colorStrength={colorStrength}
+                  lumStrength={lumStrength}
+                  region={region}
+                  regionPickMode={regionPickMode}
+                  onRegionPick={onRegionPick}
+                  // 톤 조정 탭의 결과 패널은 톤 매칭 전/후만 보여준다 - 색수차·글로우·질감·대비·틴트
+                  // 같은 마무리 효과는 "마무리 효과" 탭의 적용 후 패널(과 다운로드)에서만 얹는다.
+                  // 밝기 양 끝 보호는 톤 조정에 딸린 설정이라 여기서도 그대로 적용한다.
+                  shadowProtect={shadowProtect}
+                  highlightProtect={highlightProtect}
+                  tagLabel="보정 결과"
+                  tagExtra={tagExtra}
+                  showBeforeAfterToggle
+                  onZoom={onZoom}
+                  zoomLoading={zoomLoading}
+                  twoColumnMode
+                  growTogether={growTogether}
+                  onTallChange={setTallRight}
+                  rowWidth={panelRowWidth}
+                  rowHeight={panelRowHeight}
+                  headerSlot={rightHeader}
+                />
+              </div>
+            </div>
           </>
         )}
       </div>

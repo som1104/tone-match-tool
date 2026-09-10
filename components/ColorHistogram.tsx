@@ -19,13 +19,13 @@ function computeHistogram(data: Uint8ClampedArray, channel: number): number[] {
 
 function ChannelBars({ label, original, matched }: { label: string; original: number[]; matched: number[] }) {
   return (
-    <div style={{ marginBottom: 8 }}>
-      <p style={{ fontSize: 10, color: "var(--text-muted)", margin: "0 0 3px" }}>{label}</p>
-      <div style={{ display: "flex", alignItems: "flex-end", height: 32, gap: 1 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <span className="tm-micro">{label}</span>
+      <div style={{ display: "flex", alignItems: "flex-end", height: 42, gap: 1, borderBottom: "1px solid var(--line)" }}>
         {original.map((v, i) => (
-          <div key={i} style={{ flex: 1, position: "relative", height: "100%" }}>
-            <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${v * 100}%`, background: "var(--border-strong)", opacity: 0.6 }} />
-            <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${matched[i] * 100}%`, background: "var(--accent)", opacity: 0.85 }} />
+          <div key={i} style={{ flex: "1 1 0", position: "relative", height: "100%" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${v * 100}%`, background: "var(--line2)" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${matched[i] * 100}%`, background: "var(--acc)", opacity: 0.9 }} />
           </div>
         ))}
       </div>
@@ -48,17 +48,17 @@ export default function ColorHistogram({ original, matched }: { original: ImageD
   if (!histograms) return null;
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <ChannelBars label="R" original={histograms.r.original} matched={histograms.r.matched} />
       <ChannelBars label="G" original={histograms.g.original} matched={histograms.g.matched} />
       <ChannelBars label="B" original={histograms.b.original} matched={histograms.b.matched} />
-      <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-        <span style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--border-strong)", opacity: 0.6, display: "inline-block" }} />
+      <div className="tm-micro" style={{ display: "flex", gap: 16, letterSpacing: "0.12em" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, background: "var(--line2)", display: "inline-block" }} />
           원본
         </span>
-        <span style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--accent)", display: "inline-block" }} />
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 8, height: 8, background: "var(--acc)", display: "inline-block" }} />
           보정 후
         </span>
       </div>

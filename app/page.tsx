@@ -12,6 +12,7 @@ import { extractPalette, PaletteColor } from "../lib/palette";
 import { renderBlendedBlob, ExportRegion } from "../lib/export";
 import { computeRegionMask, upscaleMask, RegionSeed } from "../lib/regionMask";
 import { getMaxTextureSize } from "../lib/glBlend";
+import { filterImageFiles, readDroppedImageFiles } from "../lib/dnd";
 import { FinishingPreset, loadPresets, savePresets } from "../lib/presets";
 import {
   SessionMeta,
@@ -27,7 +28,8 @@ import {
   clearSession,
 } from "../lib/sessionStore";
 
-const DEFAULT_WIDTH = 1400;
+// 기본 작업 폭 - 넓은 모니터에서도 양옆이 너무 비지 않도록 1720. 창이 더 좁으면 자동으로 창 폭에 맞춘다.
+const DEFAULT_WIDTH = 1720;
 const DEFAULT_TOLERANCE = 30;
 const DEFAULT_FEATHER = 0;
 const MAX_FEATHER_RADIUS_PX = 15;
@@ -915,6 +917,15 @@ export default function Home() {
     setZipProgress(null);
   }
 
+  // 빈 상태 화면의 드롭 존 - 오른쪽 레일과 같은 핸들러(handleFilesSelected)로 이어진다.
+  const [emptyDragOver, setEmptyDragOver] = useState(false);
+  async function handleEmptyDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setEmptyDragOver(false);
+    const files = await readDroppedImageFiles(e.dataTransfer);
+    if (files.length > 0) handleFilesSelected(files);
+  }
+
   const selected = targets.find((t) => t.id === selectedId) || null;
   const selectedIndex = selected ? targets.findIndex((t) => t.id === selected.id) + 1 : undefined;
   const overridden =
@@ -943,141 +954,69 @@ export default function Home() {
     appliedSource: t.id === appliedSourceId,
   }));
 
+  // 상태 문구 (탭 행 우측 마이크로 라벨) - 기존 상태값에서 파생한 표시 전용 텍스트.
+  const ALGORITHM_SHORT: Record<Algorithm, string> = { mkl: "MKL", reinhard: "Reinhard", histogram: "히스토그램" };
+  const statusLine = processProgress
+    ? `처리 중 ${processProgress.current} / ${processProgress.total}`
+    : anyProcessed
+      ? `${ALGORITHM_SHORT[algorithm]} 적용 · ${targets.length}장 · ${downloadFormat.toUpperCase()}`
+      : "대기 중 / IDLE";
+
+  const showStage = !!(selected && selected.matchedSrc && referenceSrc);
+
   return (
     <main
+      className="tm-app"
       style={{
         width: customWidth ?? undefined,
         maxWidth: customWidth ? "calc(100vw - 16px)" : DEFAULT_WIDTH,
-        margin: "0 auto",
-        padding: "1.25rem",
-        height: "100vh",
-        boxSizing: "border-box",
-        display: "flex",
-        flexDirection: "column",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "0 0 12px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontFamily: "var(--title-font)", fontSize: 26, color: "var(--text-primary)" }}>톤메이트</span>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>이미지 보정 툴 — 프로토타입</span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={handleUndo} disabled={!canUndo} style={{ fontSize: 12 }} title="되돌리기 (Ctrl+Z)">
+      <header className="tm-header">
+        <span className="tm-logo">TONEMATE</span>
+        <span className="tm-micro" style={{ fontSize: 10.5 }}>이미지 보정 툴 — 프로토타입</span>
+        <div className="tm-header-actions">
+          <button onClick={handleUndo} disabled={!canUndo} title="되돌리기 (Ctrl+Z)">
             되돌리기
           </button>
-          <button onClick={handleRedo} disabled={!canRedo} style={{ fontSize: 12 }} title="다시 실행 (Ctrl+Shift+Z)">
+          <button onClick={handleRedo} disabled={!canRedo} title="다시 실행 (Ctrl+Shift+Z)">
             다시 실행
           </button>
-          <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            style={{ fontSize: 12 }}
-            title="정색 작업용 다크 모드"
-          >
+          <button onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))} title="정색 작업용 다크 모드">
             {theme === "dark" ? "라이트 모드" : "다크 모드"}
           </button>
           {customWidth !== null && (
-            <button onClick={resetWidth} style={{ fontSize: 12 }}>폭 기본값으로</button>
+            <button onClick={resetWidth}>폭 기본값으로</button>
           )}
           {(referenceSrc || targets.length > 0) && (
-            <button onClick={handleResetWorkspace} style={{ fontSize: 12 }}>작업 공간 초기화</button>
+            <button className="tm-acc-outline" onClick={handleResetWorkspace}>작업 공간 초기화</button>
           )}
         </div>
-      </div>
+      </header>
       {showResetToast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#222",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            fontSize: 13,
-            zIndex: 50,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-          }}
-        >
+        <div className="tm-toast">
           작업 공간을 초기화했어요.
-          <button
-            onClick={handleUndoReset}
-            style={{ fontSize: 13, fontWeight: 600, color: "#8ab4ff", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-          >
-            되돌리기
-          </button>
+          <button onClick={handleUndoReset}>되돌리기</button>
         </div>
       )}
       {showRestoreBanner && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#222",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            fontSize: 13,
-            zIndex: 50,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-          }}
-        >
+        <div className="tm-toast">
           이전 작업이 저장되어 있어요.
-          <button
-            onClick={handleContinueSession}
-            style={{ fontSize: 13, fontWeight: 600, color: "#8ab4ff", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-          >
-            이어하기
-          </button>
-          <button
-            onClick={handleStartFresh}
-            style={{ fontSize: 13, color: "#ccc", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-          >
-            새로 시작
-          </button>
+          <button onClick={handleContinueSession} style={{ fontWeight: 600 }}>이어하기</button>
+          <button onClick={handleStartFresh}>새로 시작</button>
         </div>
       )}
       {restoringSession && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#222",
-            color: "#fff",
-            padding: "10px 16px",
-            borderRadius: 8,
-            fontSize: 13,
-            zIndex: 50,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-          }}
-        >
-          이전 작업을 불러오는 중…
+        <div className="tm-toast">
+          <span style={{ animation: "tm-blink 1s infinite" }}>이전 작업을 불러오는 중…</span>
         </div>
       )}
-      <div className="card" style={{ position: "relative", display: "flex", overflow: "hidden", flex: 1, minHeight: 0 }}>
-        <div
-          onMouseDown={startResize}
-          title="드래그해서 폭 조절"
-          style={{ position: "absolute", top: 0, bottom: 0, left: -8, width: 16, cursor: "ew-resize", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <div style={{ width: 4, height: 40, borderRadius: 2, background: "var(--text-muted)", opacity: 0.4 }} />
+      <div className="tm-body">
+        <div onMouseDown={startResize} title="드래그해서 폭 조절" className="tm-resize" style={{ left: -8 }}>
+          <span />
         </div>
-        <div
-          onMouseDown={startResize}
-          title="드래그해서 폭 조절"
-          style={{ position: "absolute", top: 0, bottom: 0, right: -8, width: 16, cursor: "ew-resize", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <div style={{ width: 4, height: 40, borderRadius: 2, background: "var(--text-muted)", opacity: 0.4 }} />
+        <div onMouseDown={startResize} title="드래그해서 폭 조절" className="tm-resize" style={{ right: -8 }}>
+          <span />
         </div>
         <Sidebar
           referenceSrc={referenceSrc}
@@ -1099,33 +1038,34 @@ export default function Home() {
           onDownloadFormatChange={setDownloadFormat}
           selectedOriginal={selected?.originalImageData ?? null}
           selectedMatched={selected?.matchedImageData ?? null}
+          targetCount={targets.length}
         />
 
-        <div style={{ flex: 1, minWidth: 0, padding: "1.25rem", display: "flex", flexDirection: "column" }}>
-          {selected && selected.matchedSrc && referenceSrc ? (
+        <section className="tm-stage">
+          <div className="tm-tabs" style={{ visibility: showStage ? "visible" : "hidden" }}>
+            <button
+              className={stageTab === "tone" ? "tm-acc" : "tm-acc-outline"}
+              onClick={() => setStageTab("tone")}
+              style={{ fontWeight: 600 }}
+            >
+              톤 조정
+            </button>
+            <button
+              className={stageTab === "finishing" ? "tm-ink" : undefined}
+              onClick={() => setStageTab("finishing")}
+            >
+              마무리 효과
+            </button>
+            <span className="tm-status" style={{ marginLeft: "auto" }}>{statusLine}</span>
+          </div>
+          {showStage && selected ? (
             <>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexShrink: 0 }}>
-                <button
-                  className={stageTab === "tone" ? "primary" : undefined}
-                  onClick={() => setStageTab("tone")}
-                  style={{ padding: "6px 14px", fontSize: 13 }}
-                >
-                  톤 조정
-                </button>
-                <button
-                  className={stageTab === "finishing" ? "primary" : undefined}
-                  onClick={() => setStageTab("finishing")}
-                  style={{ padding: "6px 14px", fontSize: 13 }}
-                >
-                  마무리 효과
-                </button>
-              </div>
-              <div style={{ flex: 1, minHeight: 0 }}>
+              <div style={{ flex: 1, minHeight: 320 }}>
                 <CompareStage
-                  referenceSrc={referenceSrc}
+                  referenceSrc={referenceSrc!}
                   referenceImageData={referenceImageData}
                   originalSrc={selected.originalSrc}
-                  matchedSrc={selected.matchedSrc}
+                  matchedSrc={selected.matchedSrc!}
                   colorStrength={selected.colorStrength}
                   lumStrength={selected.lumStrength}
                   overridden={overridden}
@@ -1204,36 +1144,40 @@ export default function Home() {
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
-              <div style={{ display: "flex" }}>
-                {[["ㅌ", "톤"], ["ㅁ", "메"], ["ㅇ", "이"], ["ㅌ", "트"]].map(([jamo, syl], i) => (
-                  <div key={i} style={{ position: "relative", display: "inline-block" }}>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        top: -16,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        fontFamily: "var(--title-font)",
-                        fontSize: 18,
-                        color: "var(--sage)",
-                      }}
-                    >
-                      {jamo}
-                    </span>
-                    <span style={{ fontFamily: "var(--title-font)", fontSize: 72, color: "var(--accent)", lineHeight: 1 }}>{syl}</span>
-                  </div>
-                ))}
+            /* 빈 상태 - 영역 전체가 클릭·드롭 존. 기존 파일 입력 핸들러(handleFilesSelected)에 연결. */
+            <label
+              className={`tm-empty${emptyDragOver ? " is-over" : ""}`}
+              onDragOver={(e) => { e.preventDefault(); setEmptyDragOver(true); }}
+              onDragLeave={() => setEmptyDragOver(false)}
+              onDrop={handleEmptyDrop}
+            >
+              <div className="tm-empty-title">TONE<br />MATCH</div>
+              <p>
+                {targets.length === 0 ? (
+                  <>왼쪽에 레퍼런스 이미지를 올리고, 여기나 오른쪽 레일에<br />보정할 이미지를 끌어다 놓거나 클릭해서 불러와 주세요.</>
+                ) : (
+                  <>일괄 처리를 눌러 보정을 실행해주세요</>
+                )}
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <span className="tm-cta">이미지 불러오기</span>
               </div>
-              <span style={{ color: "var(--text-muted)", fontSize: 14, textAlign: "center" }}>
-                {targets.length === 0
-                  ? "레퍼런스와 보정할 이미지를 올린 뒤 일괄 처리를 눌러주세요"
-                  : "일괄 처리를 눌러 보정을 실행해주세요"}
+              <span className="tm-empty-tip">
+                양쪽 가장자리 세로선을 끌면 작업 폭 조절 &nbsp;·&nbsp; 상단 <b>폭 기본값으로</b> 버튼으로 복원
               </span>
-            </div>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  if (e.target.files) handleFilesSelected(filterImageFiles(e.target.files));
+                  e.target.value = "";
+                }}
+              />
+            </label>
           )}
-        </div>
+        </section>
 
         <FilmStrip
           items={stripItems}
