@@ -402,9 +402,9 @@ export default function Home() {
       const finalTargets =
         meta.wasProcessed && refData
           ? restoredTargets.map((t) => {
-              const matched = applyTransfer(t.originalImageData, refData!, meta.algorithm);
-              return { ...t, matchedImageData: matched, matchedSrc: canvasToDataUrl(imageDataToCanvas(matched)) };
-            })
+            const matched = applyTransfer(t.originalImageData, refData!, meta.algorithm);
+            return { ...t, matchedImageData: matched, matchedSrc: canvasToDataUrl(imageDataToCanvas(matched)) };
+          })
           : restoredTargets;
 
       setTargets(finalTargets);
@@ -935,14 +935,14 @@ export default function Home() {
   const selectedRegion: RegionValues | null =
     selected && selected.regionMask
       ? {
-          mask: selected.regionMask,
-          maskWidth: selected.originalImageData.width,
-          maskHeight: selected.originalImageData.height,
-          fgColorStrength: selected.fgColorStrength,
-          fgLumStrength: selected.fgLumStrength,
-          bgColorStrength: selected.bgColorStrength,
-          bgLumStrength: selected.bgLumStrength,
-        }
+        mask: selected.regionMask,
+        maskWidth: selected.originalImageData.width,
+        maskHeight: selected.originalImageData.height,
+        fgColorStrength: selected.fgColorStrength,
+        fgLumStrength: selected.fgLumStrength,
+        bgColorStrength: selected.bgColorStrength,
+        bgLumStrength: selected.bgLumStrength,
+      }
       : null;
   const stripItems: StripItem[] = targets.map((t) => ({
     id: t.id,
@@ -974,7 +974,7 @@ export default function Home() {
     >
       <header className="tm-header">
         <span className="tm-logo">TONEMATE</span>
-        <span className="tm-micro" style={{ fontSize: 10.5 }}>이미지 보정 툴 — 프로토타입</span>
+        <span className="tm-micro" style={{ fontSize: 10.5 }}>톤 매칭 이미지 보정 툴</span>
         <div className="tm-header-actions">
           <button onClick={handleUndo} disabled={!canUndo} title="되돌리기 (Ctrl+Z)">
             되돌리기
@@ -1111,35 +1111,35 @@ export default function Home() {
                     onDeletePreset={handleDeletePreset}
                   />
                 ) : (
-                <StrengthPanel
-                  colorStrength={selected.colorStrength}
-                  lumStrength={selected.lumStrength}
-                  onColorChange={(v) => updateSelected({ colorStrength: v })}
-                  onLumChange={(v) => updateSelected({ lumStrength: v })}
-                  overridden={overridden}
-                  onApplyToAll={handleApplyToAll}
-                  onResetToDefault={handleResetToDefault}
-                  region={selectedRegion}
-                  regionPickMode={regionPickMode}
-                  regionTolerance={selected.regionTolerance}
-                  regionFeather={selected.regionFeather}
-                  onStartRegionPick={handleStartRegionPick}
-                  onToleranceChange={handleToleranceChange}
-                  onFeatherChange={handleFeatherChange}
-                  onClearRegion={handleClearRegion}
-                  onApplyRegionToAll={handleApplyRegionToAll}
-                  onUndoRegionPick={handleUndoRegionPick}
-                  onFgColorChange={(v) => updateSelected({ fgColorStrength: v })}
-                  onFgLumChange={(v) => updateSelected({ fgLumStrength: v })}
-                  onBgColorChange={(v) => updateSelected({ bgColorStrength: v })}
-                  onBgLumChange={(v) => updateSelected({ bgLumStrength: v })}
-                  protectEnabled={protectEnabled}
-                  onProtectEnabledChange={handleProtectEnabledChange}
-                  shadowProtect={shadowProtect}
-                  onShadowProtectChange={setShadowProtect}
-                  highlightProtect={highlightProtect}
-                  onHighlightProtectChange={setHighlightProtect}
-                />
+                  <StrengthPanel
+                    colorStrength={selected.colorStrength}
+                    lumStrength={selected.lumStrength}
+                    onColorChange={(v) => updateSelected({ colorStrength: v })}
+                    onLumChange={(v) => updateSelected({ lumStrength: v })}
+                    overridden={overridden}
+                    onApplyToAll={handleApplyToAll}
+                    onResetToDefault={handleResetToDefault}
+                    region={selectedRegion}
+                    regionPickMode={regionPickMode}
+                    regionTolerance={selected.regionTolerance}
+                    regionFeather={selected.regionFeather}
+                    onStartRegionPick={handleStartRegionPick}
+                    onToleranceChange={handleToleranceChange}
+                    onFeatherChange={handleFeatherChange}
+                    onClearRegion={handleClearRegion}
+                    onApplyRegionToAll={handleApplyRegionToAll}
+                    onUndoRegionPick={handleUndoRegionPick}
+                    onFgColorChange={(v) => updateSelected({ fgColorStrength: v })}
+                    onFgLumChange={(v) => updateSelected({ fgLumStrength: v })}
+                    onBgColorChange={(v) => updateSelected({ bgColorStrength: v })}
+                    onBgLumChange={(v) => updateSelected({ bgLumStrength: v })}
+                    protectEnabled={protectEnabled}
+                    onProtectEnabledChange={handleProtectEnabledChange}
+                    shadowProtect={shadowProtect}
+                    onShadowProtectChange={setShadowProtect}
+                    highlightProtect={highlightProtect}
+                    onHighlightProtectChange={setHighlightProtect}
+                  />
                 )}
               </div>
             </>
@@ -1151,10 +1151,10 @@ export default function Home() {
               onDragLeave={() => setEmptyDragOver(false)}
               onDrop={handleEmptyDrop}
             >
-              <div className="tm-empty-title">TONE<br />MATCH</div>
+              <div className="tm-empty-title">TONEMATE</div>
               <p>
                 {targets.length === 0 ? (
-                  <>왼쪽에 레퍼런스 이미지를 올리고, 여기나 오른쪽 레일에<br />보정할 이미지를 끌어다 놓거나 클릭해서 불러와 주세요.</>
+                  <>왼쪽에 레퍼런스 이미지를 올리고, <br />여기나 오른쪽 레일에 보정할 이미지를 끌어다 놓거나 클릭해서 불러와 주세요.</>
                 ) : (
                   <>일괄 처리를 눌러 보정을 실행해주세요</>
                 )}
@@ -1163,7 +1163,7 @@ export default function Home() {
                 <span className="tm-cta">이미지 불러오기</span>
               </div>
               <span className="tm-empty-tip">
-                양쪽 가장자리 세로선을 끌면 작업 폭 조절 &nbsp;·&nbsp; 상단 <b>폭 기본값으로</b> 버튼으로 복원
+                <b>양쪽 가장자리 세로선을 끌면 작업 폭 조절 &nbsp;·&nbsp; 상단 폭 기본값으로 버튼으로 복원</b>
               </span>
               <input
                 type="file"
